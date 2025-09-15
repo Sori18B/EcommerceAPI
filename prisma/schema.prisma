@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  userID           Int      @id @default(autoincrement())
+  roleID           Int
+  name             String
+  lastName         String
+  email            String   @unique
+  password         String
+  phoneNumber      String  @db.VarChar(15)
+  stripeCustomerID String? @db.VarChar(255)
+
+  // timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // relations
+  role      Role      @relation(fields: [roleID], references: [roleID])
+  addresses Address[]
+}
+
+model Address {
+  addressID     Int      @id @default(autoincrement())
+  userID        Int
+  addressType   String   @default("shipping") @db.VarChar(50)
+  firstName     String
+  lastName      String
+  street        String
+  city          String
+  state         String
+  neighborhood  String
+  postalCode    String   @db.VarChar(20)
+  countryCode   String   @db.VarChar(3)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // relations
+  user User @relation(fields: [userID], references: [userID])
+}
+
+model Role {
+  roleID    Int     @id @default(autoincrement())
+  roleName  String  @unique @db.VarChar(50)
+
+  // back-relation
+  users User[]
+}
