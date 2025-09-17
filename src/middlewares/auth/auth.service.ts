@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Response } from 'express';
 import { LoginDto } from 'src/apps/login/dto/login.dto';
 import { PrismaService } from 'src/config/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -43,7 +44,7 @@ export class AuthService {
   }
 
   //Make the token to access
-  async login(user: any) {
+  async login(user: any, res?: Response) {
     try {
       const payload = {
         userID: user.userID,
@@ -57,13 +58,44 @@ export class AuthService {
 
       const access_token = this.jwtService.sign(payload);
 
+      // Si se proporciona el objeto Response, configurar cookie HTTP-only
+      if (res) {
+        res.cookie('access_token', access_token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+          sameSite: 'strict',
+          maxAge: 8 * 60 * 60 * 1000, // 24 horas en milisegundos
+        });
+      }
+
       return {
         success: true,
         message: 'Login exitoso',
-        access_token: access_token
+        access_token: access_token,
+        user: {
+          userID: user.userID,
+          name: user.name,
+          lastName: user.lastName,
+          email: user.email,
+          roleName: user.role?.roleName,
+          stripeCustomerID: user.stripeCustomerID
+        }
       };
     } catch (error) {
       throw new Error(`Error al generar token: ${error.message}`);
+    }
+  }
+
+  // Método para logout (limpiar cookie)
+  async logout(res: Response) {
+    try {
+      res.clearCookie('access_token');
+      return {
+        success: true,
+        message: 'Logout exitoso'
+      };
+    } catch (error) {
+      throw new Error(`Error al hacer logout: ${error.message}`);
     }
   }
 }

@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "public"."AddressType" AS ENUM ('BILLING', 'SHIPPING', 'BOTH');
+
 -- CreateTable
 CREATE TABLE "public"."User" (
     "userID" SERIAL NOT NULL,
@@ -7,6 +10,7 @@ CREATE TABLE "public"."User" (
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "phoneNumber" VARCHAR(15) NOT NULL,
+    "imageURL" TEXT,
     "stripeCustomerID" VARCHAR(255),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -18,16 +22,17 @@ CREATE TABLE "public"."User" (
 CREATE TABLE "public"."Address" (
     "addressID" SERIAL NOT NULL,
     "userID" INTEGER NOT NULL,
-    "addressType" VARCHAR(50) NOT NULL DEFAULT 'shipping',
-    "firstName" TEXT NOT NULL,
-    "lastName" TEXT NOT NULL,
-    "street" TEXT NOT NULL,
-    "city" TEXT NOT NULL,
-    "state" TEXT NOT NULL,
-    "neighborhood" TEXT NOT NULL,
+    "addressType" "public"."AddressType" NOT NULL DEFAULT 'BOTH',
+    "firstName" VARCHAR(100) NOT NULL,
+    "lastName" VARCHAR(100) NOT NULL,
+    "street" VARCHAR(255) NOT NULL,
+    "neighborhood" VARCHAR(100),
+    "city" VARCHAR(100) NOT NULL,
+    "state" VARCHAR(100) NOT NULL,
     "postalCode" VARCHAR(20) NOT NULL,
-    "countryCode" VARCHAR(3) NOT NULL,
-    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "countryCode" VARCHAR(2) NOT NULL,
+    "isBillingDefault" BOOLEAN NOT NULL DEFAULT false,
+    "isShippingDefault" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -44,6 +49,12 @@ CREATE TABLE "public"."Role" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_phoneNumber_key" ON "public"."User"("phoneNumber");
+
+-- CreateIndex
+CREATE INDEX "Address_userID_idx" ON "public"."Address"("userID");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Role_roleName_key" ON "public"."Role"("roleName");
