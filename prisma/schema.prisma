@@ -14,7 +14,8 @@ model User {
   lastName         String
   email            String   @unique
   password         String
-  phoneNumber      String  @db.VarChar(15)
+  phoneNumber      String  @db.VarChar(15) @unique
+  imageURL         String? 
   stripeCustomerID String? @db.VarChar(255)
 
   // timestamps
@@ -26,24 +27,43 @@ model User {
   addresses Address[]
 }
 
+enum AddressType {
+  BILLING
+  SHIPPING
+  BOTH
+}
+
 model Address {
+  // Identificación
   addressID     Int      @id @default(autoincrement())
   userID        Int
-  addressType   String   @default("shipping") @db.VarChar(50)
-  firstName     String
-  lastName      String
-  street        String
-  city          String
-  state         String
-  neighborhood  String
+  addressType   AddressType @default(BOTH)
+
+  // Datos personales en la dirección
+  firstName     String   @db.VarChar(100)
+  lastName      String   @db.VarChar(100)
+
+  // Dirección física (REQUERIDOS por Stripe)
+  street        String   @db.VarChar(255)
+  neighborhood  String?  @db.VarChar(100)  // ← OPCIONAL
+  city          String   @db.VarChar(100)
+  state         String   @db.VarChar(100)
   postalCode    String   @db.VarChar(20)
-  countryCode   String   @db.VarChar(3)
-  isDefault     Boolean  @default(false)
+  countryCode   String   @db.VarChar(2)    // ← ISO 2 caracteres
+
+  // Flags de uso
+  isBillingDefault  Boolean @default(false)
+  isShippingDefault Boolean @default(false)
+
+  // Timestamps
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // relations
   user User @relation(fields: [userID], references: [userID])
+
+  // Índice para performance
+  @@index([userID])
 }
 
 model Role {

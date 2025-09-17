@@ -2,19 +2,22 @@ import {
   IsEmail,
   IsNotEmpty,
   IsString,
-  IsInt,
+  IsUrl,
   IsPhoneNumber,
   MinLength,
   MaxLength,
   IsOptional,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AddressDto } from './address.dto';
+import { Type } from 'class-transformer';
+import { ValidateNested } from 'class-validator';
 
 export class RegisterDto {
-  @IsInt()
-  @IsNotEmpty()
-  @ApiProperty({ example: 1, description: 'ID del rol del usuario' })
-  roleID: number;
+  //@IsInt()
+  //@IsNotEmpty()
+  //@ApiProperty({ example: 1, description: 'ID del rol del usuario' })
+  //roleID: number;
 
   @IsString()
   @IsNotEmpty()
@@ -53,4 +56,15 @@ export class RegisterDto {
     description: 'Número de teléfono del usuario'
   })
   phoneNumber: string;
+
+  @IsUrl()
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ example: 'https://example.com/image.jpg', description: 'Foto de perfil del usuario' })
+  imageURL: string;
+
+  @ApiProperty({ type: () => AddressDto, description: 'Dirección del cliente' })
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address: AddressDto;
 }
