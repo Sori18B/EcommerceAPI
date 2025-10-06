@@ -7,12 +7,12 @@ import { ApiCookieAuth } from 'src/middlewares/auth/cookie-auth.decorator';
 import type { Response } from 'express';
 
 @ApiTags('Autenticación')
-@Controller('login')
+@Controller('auth')
 export class LoginController {
   constructor(private readonly loginService: LoginService) {}
 
   @Public()
-  @Post()
+  @Post('/login')
   @ApiOperation({ summary: 'Iniciar sesión de usuario' })
   @ApiResponse({ 
     status: 200, 
@@ -22,15 +22,7 @@ export class LoginController {
         success: true,
         message: 'Login exitoso',
         data: {
-          access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-          user: {
-            userID: 1,
-            name: 'Juan',
-            lastName: 'Pérez',
-            email: 'juan@ejemplo.com',
-            roleName: 'customer',
-            stripeCustomerID: 'cus_1234567890'
-          }
+          access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
         }
       }
     }
