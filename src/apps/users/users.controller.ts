@@ -19,12 +19,44 @@ export class UsersController {
   @ApiOperation({ summary: 'Registrar usuario con dirección' })
   async register(@Body() registerDto: RegisterDto) {
     try {
+      // Log de datos recibidos en el controlador
+      console.log('=== REGISTRO DE USUARIO - CONTROLADOR ===');
+      console.log('📥 Datos recibidos en el controlador:');
+      console.log('👤 Datos del usuario:', {
+        name: registerDto.name,
+        lastName: registerDto.lastName,
+        email: registerDto.email,
+        phoneNumber: registerDto.phoneNumber,
+        imageURL: registerDto.imageURL || 'No proporcionada',
+        password: '[PROTEGIDA]'
+      });
+      console.log('🏠 Datos de dirección:', {
+        firstName: registerDto.address.firstName,
+        lastName: registerDto.address.lastName,
+        street: registerDto.address.street,
+        neighborhood: registerDto.address.neighborhood || 'No proporcionado',
+        city: registerDto.address.city,
+        state: registerDto.address.state,
+        postalCode: registerDto.address.postalCode,
+        countryCode: registerDto.address.countryCode,
+        addressType: registerDto.address.addressType,
+        isBillingDefault: registerDto.address.isBillingDefault,
+        isShippingDefault: registerDto.address.isShippingDefault
+      });
+      console.log('📝 Timestamp:', new Date().toISOString());
+      console.log('==========================================');
+
       const result = await this.usersService.createUserComplete(registerDto);
+      
+      console.log('✅ Registro completado exitosamente en el controlador');
+      console.log('📤 Respuesta enviada:', { success: true, data: result });
+      
       return {
         success: true,
         data: result
       };
     } catch (error) {
+      console.error('❌ Error en el controlador de registro:', error.message);
       throw new HttpException(
         {
           success: false,
