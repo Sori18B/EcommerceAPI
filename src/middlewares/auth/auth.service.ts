@@ -71,15 +71,7 @@ export class AuthService {
       return {
         success: true,
         message: 'Login exitoso',
-        access_token: access_token,
-        user: {
-          userID: user.userID,
-          name: user.name,
-          lastName: user.lastName,
-          email: user.email,
-          roleName: user.role?.roleName,
-          stripeCustomerID: user.stripeCustomerID
-        }
+        access_token: access_token
       };
     } catch (error) {
       throw new Error(`Error al generar token: ${error.message}`);

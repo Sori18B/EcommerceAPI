@@ -15,6 +15,9 @@ export class UsersService {
   constructor(private prisma: PrismaService, private stripe: StripeService) {}
 
   async createUserDB(data: RegisterDto) {
+    console.log('=== PROCESAMIENTO BASE DE DATOS ===');
+    console.log('🔍 Verificando si el usuario ya existe...');
+    
     try {
       // Verificar si el usuario ya existe
       const existingUser = await this.prisma.user.findFirst({
@@ -27,6 +30,11 @@ export class UsersService {
       });
 
       if (existingUser) {
+        console.error('❌ Usuario ya existe:', {
+          email: existingUser.email,
+          phoneNumber: existingUser.phoneNumber,
+          userID: existingUser.userID
+        });
         if (existingUser.email === data.email) {
           throw new Error('El usuario con este email ya existe');
         }
@@ -34,13 +42,40 @@ export class UsersService {
           throw new Error('El usuario con este número de teléfono ya existe');
         }
       }
+      console.log('✅ Usuario no existe, puede proceder con el registro');
 
       // Encriptar la contraseña
+      console.log('🔐 Encriptando contraseña...');
       const hashedPassword = await bcrypt.hash(data.password, 10);
+      console.log('✅ Contraseña encriptada correctamente');
 
       // Crear usuario y dirección en una transacción
+      console.log('💾 Iniciando transacción de base de datos...');
+      console.log('📝 Datos del usuario a crear:', {
+        roleID: 2,
+        name: data.name,
+        lastName: data.lastName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        hasPassword: !!hashedPassword
+      });
+      console.log('🏠 Datos de dirección a crear:', {
+        addressType: data.address.addressType || 'BOTH',
+        firstName: data.address.firstName,
+        lastName: data.address.lastName,
+        street: data.address.street,
+        neighborhood: data.address.neighborhood || 'No proporcionado',
+        city: data.address.city,
+        state: data.address.state,
+        postalCode: data.address.postalCode,
+        countryCode: data.address.countryCode,
+        isBillingDefault: data.address.isBillingDefault ?? true,
+        isShippingDefault: data.address.isShippingDefault ?? true
+      });
+      
       const result = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
         // 1. Crear usuario
+        console.log('👤 Creando usuario en BD...');
         const newUser = await prisma.user.create({
           data: {
             roleID: 2,
@@ -52,8 +87,10 @@ export class UsersService {
             // stripeCustomerID se agregará después
           }
         });
+        console.log('✅ Usuario creado:', { userID: newUser.userID, email: newUser.email });
 
         // 2. Crear dirección por defecto
+        console.log('🏠 Creando dirección en BD...');
         const newAddress = await prisma.address.create({
           data: {
             userID: newUser.userID,
@@ -71,21 +108,55 @@ export class UsersService {
             isShippingDefault: data.address.isShippingDefault ?? true,
           }
         });
+        console.log('✅ Dirección creada:', { addressID: newAddress.addressID, userID: newAddress.userID });
 
         return { user: newUser, address: newAddress };
       });
 
-      return { 
+      const dbResult = { 
         message: 'Usuario y dirección creados correctamente en la base de datos',
         userId: result.user.userID,
         addressId: result.address.addressID
       };
+      
+      console.log('🎉 TRANSACCIÓN BD COMPLETADA EXITOSAMENTE');
+      console.log('📊 Resultado BD:', dbResult);
+      console.log('===============================');
+      
+      return dbResult;
     } catch (error) {
+      console.error('💥 ERROR EN PROCESAMIENTO BD:', error.message);
+      console.error('📊 Datos que causaron el error:', {
+        email: data.email,
+        name: data.name,
+        phoneNumber: data.phoneNumber
+      });
+      console.error('🚫 PROCESAMIENTO BD FALLIDO - Timestamp:', new Date().toISOString());
+      console.log('===============================');
       throw new Error(`Error al crear usuario en BD: ${error.message}`);
     }
   }
 
   async createUserStripe(data: RegisterDto) {
+    console.log('=== PROCESAMIENTO STRIPE ===');
+    console.log('💳 Iniciando creación de cliente en Stripe...');
+    console.log('📤 Datos a enviar a Stripe:', {
+      name: `${data.name} ${data.lastName}`,
+      email: data.email,
+      phone: data.phoneNumber,
+      address: {
+        firstName: data.address.firstName,
+        lastName: data.address.lastName,
+        street: data.address.street,
+        neighborhood: data.address.neighborhood || 'No proporcionado',
+        city: data.address.city,
+        state: data.address.state,
+        postalCode: data.address.postalCode,
+        countryCode: data.address.countryCode,
+        addressType: data.address.addressType
+      }
+    });
+    
     try {
       const stripeCustomer = await this.stripe.createCustomer({ 
         name: `${data.name} ${data.lastName}`,
@@ -94,11 +165,30 @@ export class UsersService {
         address: data.address
       });
 
-      return { 
+      const stripeResult = { 
         message: 'Usuario creado correctamente en Stripe',
         stripeCustomerId: stripeCustomer.id 
       };
+      
+      console.log('✅ Cliente creado en Stripe exitosamente:', {
+        stripeCustomerId: stripeCustomer.id,
+        email: stripeCustomer.email || 'No proporcionado',
+        name: stripeCustomer.name || 'No proporcionado'
+      });
+      console.log('🎉 PROCESAMIENTO STRIPE COMPLETADO');
+      console.log('📊 Resultado Stripe:', stripeResult);
+      console.log('===============================');
+      
+      return stripeResult;
     } catch (error) {
+      console.error('💥 ERROR EN PROCESAMIENTO STRIPE:', error.message);
+      console.error('📊 Datos que causaron el error:', {
+        email: data.email,
+        name: `${data.name} ${data.lastName}`,
+        phone: data.phoneNumber
+      });
+      console.error('🚫 PROCESAMIENTO STRIPE FALLIDO - Timestamp:', new Date().toISOString());
+      console.log('===============================');
       throw new Error(`Error al crear usuario en Stripe: ${error.message}`);
     }
   }
@@ -108,35 +198,76 @@ export class UsersService {
     let createdUser: { userID: number } | null = null;
     let stripeCustomer: any = null;
 
+    console.log('=== INICIO PROCESAMIENTO REGISTRO - SERVICIO ===');
+    console.log('🔄 Iniciando proceso completo de registro de usuario');
+    console.log('📋 Datos a procesar:', {
+      email: data.email,
+      name: data.name,
+      lastName: data.lastName,
+      phoneNumber: data.phoneNumber,
+      hasImage: !!data.imageURL,
+      addressType: data.address.addressType
+    });
+    console.log('⏰ Timestamp inicio:', new Date().toISOString());
+
     try {
       // 1. Primero crear usuario y dirección en la base de datos
+      console.log('🗄️ Paso 1: Creando usuario en base de datos...');
       const dbResult = await this.createUserDB(data);
+      console.log('✅ Usuario creado en BD exitosamente:', {
+        userId: dbResult.userId,
+        addressId: dbResult.addressId
+      });
       
       // 2. Obtener el usuario recién creado para tener su ID
+      console.log('🔍 Paso 2: Obteniendo usuario recién creado...');
       createdUser = await this.prisma.user.findUnique({
         where: { email: data.email },
         select: { userID: true }
       });
 
       if (!createdUser) {
+        console.error('❌ Error: No se pudo obtener usuario recién creado');
         throw new Error('Error al obtener usuario recién creado');
       }
+      console.log('✅ Usuario obtenido correctamente, ID:', createdUser.userID);
 
       // 3. Crear cliente en Stripe con dirección completa
+      console.log('💳 Paso 3: Creando cliente en Stripe...');
+      console.log('📤 Datos enviados a Stripe:', {
+        name: `${data.name} ${data.lastName}`,
+        email: data.email,
+        phone: data.phoneNumber,
+        address: {
+          firstName: data.address.firstName,
+          lastName: data.address.lastName,
+          street: data.address.street,
+          city: data.address.city,
+          state: data.address.state,
+          postalCode: data.address.postalCode,
+          countryCode: data.address.countryCode
+        }
+      });
+      
       stripeCustomer = await this.stripe.createCustomer({ 
         name: `${data.name} ${data.lastName}`,
         email: data.email,
         phone: data.phoneNumber,
         address: data.address
       });
+      console.log('✅ Cliente creado en Stripe exitosamente:', {
+        stripeCustomerId: stripeCustomer.id
+      });
 
       // 4. Actualizar usuario con el stripeCustomerID
+      console.log('🔄 Paso 4: Actualizando usuario con Stripe Customer ID...');
       await this.prisma.user.update({
         where: { userID: createdUser.userID },
         data: { stripeCustomerID: stripeCustomer.id }
       });
+      console.log('✅ Usuario actualizado con Stripe Customer ID');
 
-      return {
+      const finalResult = {
         message: 'Usuario creado exitosamente en la base de datos y Stripe',
         database: dbResult,
         stripe: {
@@ -145,9 +276,23 @@ export class UsersService {
         }
       };
 
+      console.log('🎉 REGISTRO COMPLETADO EXITOSAMENTE');
+      console.log('📊 Resultado final:', finalResult);
+      console.log('⏰ Timestamp finalización:', new Date().toISOString());
+      console.log('==========================================');
+
+      return finalResult;
+
     } catch (error) {
+      console.error('💥 ERROR EN PROCESAMIENTO DE REGISTRO:', error.message);
+      console.error('📊 Estado al momento del error:', {
+        createdUser: createdUser ? `ID: ${createdUser.userID}` : 'No creado',
+        stripeCustomer: stripeCustomer ? `ID: ${stripeCustomer.id}` : 'No creado'
+      });
+      
       // Si hay error, intentar limpiar lo que se haya creado
       if (createdUser && !stripeCustomer) {
+        console.log('🧹 Limpiando datos creados en BD debido a error en Stripe...');
         // Si se creó en BD pero no en Stripe, eliminar usuario y direcciones
         try {
           await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
@@ -161,12 +306,14 @@ export class UsersService {
               where: { userID: createdUser!.userID }
             });
           });
-          console.log('Usuario y direcciones eliminados de BD debido a error en Stripe');
+          console.log('✅ Usuario y direcciones eliminados de BD debido a error en Stripe');
         } catch (cleanupError) {
-          console.error('Error al limpiar usuario de BD:', cleanupError.message);
+          console.error('❌ Error al limpiar usuario de BD:', cleanupError.message);
         }
       }
 
+      console.error('🚫 REGISTRO FALLIDO - Timestamp:', new Date().toISOString());
+      console.log('==========================================');
       throw new Error(`Error al crear usuario completo: ${error.message}`);
     }
   }
