@@ -25,6 +25,7 @@ model User {
   // relations
   role      Role      @relation(fields: [roleID], references: [roleID])
   addresses Address[]
+  favorites Favorite[]
 }
 
 enum AddressType {
@@ -80,6 +81,11 @@ model Product {
   description String    @db.Text
   basePrice   Decimal   @db.Decimal(10, 2)
   isActive    Boolean   @default(true)
+  //Stripe fields
+  stripeProductId   String?  @unique @db.VarChar(255)
+  taxCode          String?  @db.VarChar(50)
+  shippable        Boolean? @default(true)   
+
 
   // FK
   categoryID  Int
@@ -96,7 +102,7 @@ model Product {
   variants    ProductVariant[]
   favorites   Favorite[]
 
-  // indices útiles para catálogo
+  // indices para catálogo
   @@index([categoryID])
   @@index([genderID])
   @@index([isActive])
@@ -135,7 +141,6 @@ model ProductImage {
   // relation
   product      Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
 
-  // Asegura un orden único por producto (evita duplicar el mismo orden)
   @@unique([productID, displayOrder])
   @@index([productID])
 }
@@ -151,17 +156,34 @@ model ProductVariant {
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  //Stripe fields
+  stripePriceId    String?  @unique @db.VarChar(255)
+  currency         String   @default("mxn") @db.VarChar(3)
+  mode             PaymentMode? @default(payment)  // 'payment' | 'subscription' | 'setup'
+  taxBehavior      TaxBehavior? @default(unspecified)
+  nickname         String?  @db.VarChar(255)
 
   // relations
   product          Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
   size             Size     @relation(fields: [sizeID], references: [sizeID], onDelete: Restrict, onUpdate: Cascade)
   color            Color    @relation(fields: [colorID], references: [colorID], onDelete: Restrict, onUpdate: Cascade)
 
-  // La combinación size+color por producto debe ser única
   @@unique([productID, sizeID, colorID])
   @@index([productID])
   @@index([sizeID])
   @@index([colorID])
+}
+
+enum PaymentMode {
+  payment
+  subscription
+  setup
+}
+
+enum TaxBehavior {
+  inclusive
+  exclusive
+  unspecified
 }
 
 model Size {
@@ -176,7 +198,7 @@ model Size {
 model Color {
   colorID   Int     @id @default(autoincrement())
   colorName String  @db.VarChar(100)
-  hexCode   String? @db.VarChar(7) // p.ej. #4242aaff
+  hexCode   String? @db.VarChar(7) // #4242aaff
 
   // back-relation
   variants  ProductVariant[]
@@ -192,7 +214,6 @@ model Favorite {
   user       User     @relation(fields: [userID], references: [userID], onDelete: Cascade, onUpdate: Cascade)
   product    Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
 
-  // Evita duplicar "favorito" del mismo producto por el mismo usuario
   @@unique([userID, productID])
 
   @@index([userID])
