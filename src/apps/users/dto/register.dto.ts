@@ -30,20 +30,29 @@ export class RegisterDto {
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(50)
-  @ApiProperty({ example: 'Espinosa Prado', description: 'Apellido del usuario' })
+  @ApiProperty({
+    example: 'Espinosa Prado',
+    description: 'Apellido del usuario',
+  })
   lastName: string;
 
   @IsString()
   @IsNotEmpty()
   @IsEmail()
-  @ApiProperty({ example: 'eduardo18@gmail.com', description: 'Email del usuario' })
+  @ApiProperty({
+    example: 'eduardo18@gmail.com',
+    description: 'Email del usuario',
+  })
   email: string;
 
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
   @MaxLength(100)
-  @ApiProperty({ example: 'SecurePassword#123.', description: 'Contraseña del usuario' })
+  @ApiProperty({
+    example: 'SecurePassword#123.',
+    description: 'Contraseña del usuario',
+  })
   password: string;
 
   @IsString()
@@ -51,16 +60,19 @@ export class RegisterDto {
   @MinLength(10)
   @MaxLength(15)
   @IsPhoneNumber()
-  @ApiProperty({ 
-    example: '1234567890', 
-    description: 'Número de teléfono del usuario'
+  @ApiProperty({
+    example: '+522212847943',
+    description: 'Número de teléfono del usuario',
   })
   phoneNumber: string;
 
   @IsUrl()
   @IsString()
   @IsOptional()
-  @ApiProperty({ example: 'https://example.com/image.jpg', description: 'Foto de perfil del usuario' })
+  @ApiProperty({
+    example: 'https://example.com/image.jpg',
+    description: 'Foto de perfil del usuario',
+  })
   imageURL: string;
 
   @ApiProperty({ type: () => AddressDto, description: 'Dirección del cliente' })
