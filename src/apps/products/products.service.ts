@@ -88,9 +88,11 @@ export class ProductsService {
             );
           }
 
+          const currencyForStripe = (variant.currency || 'MXN').toLowerCase();
+
           const stripePrice = await this.stripe.createPrice({
             product: stripeProduct.id,
-            currency: variant.currency || 'mxn',
+            currency: currencyForStripe,
             unit_amount: Math.round(variant.price * 100),
             nickname:
               variant.nickname ||
@@ -224,5 +226,186 @@ export class ProductsService {
     });
 
     return product;
+  }
+
+  async getAllProducts() {
+    return this.prisma.product.findMany({
+      where: { isActive: true },
+      include: {
+        variants: {
+          where: { isActive: true },
+          include: {
+            size: true,
+            color: true,
+          },
+        },
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        category: true,
+        gender: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Obtener producto por ID con todos sus detalles
+  async getProductById(productID: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { productID },
+      include: {
+        variants: {
+          include: {
+            size: true,
+            color: true,
+          },
+        },
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        category: true,
+        gender: true,
+      },
+    });
+
+    if (!product) {
+      throw new BadRequestException('Producto no encontrado');
+    }
+
+    return {
+      success: true,
+      product,
+    };
+  }
+
+  // Obtener todas las categorías activas
+  async getAllCategories() {
+    return this.prisma.category.findMany({
+      where: { isActive: true },
+      select: {
+        categoryID: true,
+        categoryName: true,
+        description: true,
+        isActive: true,
+        _count: {
+          select: { products: true },
+        },
+      },
+      orderBy: { categoryName: 'asc' },
+    });
+  }
+
+  // Obtener categoría específica con sus productos
+  async getCategoryWithProducts(categoryID: number) {
+    const category = await this.prisma.category.findUnique({
+      where: { categoryID },
+      include: {
+        products: {
+          where: { isActive: true },
+          include: {
+            variants: {
+              where: { isActive: true },
+              include: {
+                size: true,
+                color: true,
+              },
+            },
+            images: {
+              orderBy: { displayOrder: 'asc' },
+            },
+            gender: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!category) {
+      throw new BadRequestException('Categoría no encontrada');
+    }
+
+    return {
+      success: true,
+      category,
+      productsCount: category.products.length,
+    };
+  }
+
+  // Obtener productos filtrados por categoría
+  async getProductsByCategory(categoryID: number) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        categoryID,
+        isActive: true,
+      },
+      include: {
+        variants: {
+          where: { isActive: true },
+          include: {
+            size: true,
+            color: true,
+          },
+        },
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        category: true,
+        gender: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      categoryID,
+      productsCount: products.length,
+      products,
+    };
+  }
+
+  // Obtener productos filtrados por género
+  async getProductsByGender(genderID: number) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        genderID,
+        isActive: true,
+      },
+      include: {
+        variants: {
+          where: { isActive: true },
+          include: {
+            size: true,
+            color: true,
+          },
+        },
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        category: true,
+        gender: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      genderID,
+      productsCount: products.length,
+      products,
+    };
+  }
+
+  // Obtener todos los géneros
+  async getAllGenders() {
+    return this.prisma.gender.findMany({
+      select: {
+        genderID: true,
+        genderName: true,
+        _count: {
+          select: { products: true },
+        },
+      },
+      orderBy: { genderName: 'asc' },
+    });
   }
 }
