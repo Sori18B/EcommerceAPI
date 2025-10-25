@@ -123,4 +123,45 @@ export class StripeService {
       throw new Error(`Error al crear intención de pago: ${error.message}`);
     }
   }
+
+  // ---------------------------------------------------------------------------------------------------- Checkout Sessions
+
+  // Crear sesión de Checkout
+  async createCheckoutSession(data: Stripe.Checkout.SessionCreateParams) {
+    try {
+      return await this.stripe.checkout.sessions.create(data);
+    } catch (error) {
+      throw new Error(`Error al crear sesión de checkout: ${error.message}`);
+    }
+  }
+
+  // Obtener sesión de Checkout
+  async getCheckoutSession(sessionId: string) {
+    try {
+      return await this.stripe.checkout.sessions.retrieve(sessionId);
+    } catch (error) {
+      throw new Error(`Error al obtener sesión de checkout: ${error.message}`);
+    }
+  }
+
+  // Crear Customer simple (sin dirección completa)
+  async createSimpleCustomer(data: {
+    email: string;
+    name: string;
+    phone?: string;
+    metadata?: Record<string, string>;
+  }) {
+    try {
+      return await this.stripe.customers.create({
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
+        metadata: data.metadata,
+      });
+    } catch (error) {
+      throw new Error(
+        `Error al crear cliente simple en Stripe: ${error.message}`,
+      );
+    }
+  }
 }

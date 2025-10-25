@@ -8,6 +8,7 @@ import { AuthModule } from './middlewares/auth/auth.module';
 import { ProductsModule } from './apps/products/products.module';
 import { FavoritesModule } from './apps/favorites/favorites.module';
 import { CartModule } from './apps/cart/cart.module';
+import { OrdersModule } from './apps/orders/orders.module';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './middlewares/auth/roles.guard';
 
@@ -22,6 +23,7 @@ import { RolesGuard } from './middlewares/auth/roles.guard';
     ProductsModule,
     FavoritesModule,
     CartModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [
