@@ -18,10 +18,7 @@ export class OrdersService {
     private stripe: StripeService,
   ) {}
 
-  /**
-   * Crear orden desde carrito (sin pago inmediato)
-   * Útil para: guardar orden antes de redirigir a Stripe, o compras offline
-   */
+  //Crear orden desde carrito (sin pago inmediato)
   async createOrderFromCart(userID: number, dto: CreateOrderDto) {
     // 1. Validar que el carrito existe y tiene items
     const cart = await this.prisma.shoppingCart.findUnique({
@@ -105,7 +102,7 @@ export class OrdersService {
       };
     });
 
-    const taxAmount = subtotal * 0.16; // IVA 16% México
+    const taxAmount = subtotal * 0.16; // IVA 16%
     const shippingAmount = subtotal >= 500 ? 0 : 99; // Envío gratis > $500
     const totalAmount = subtotal + taxAmount + shippingAmount;
 
@@ -181,10 +178,7 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Crear sesión de Stripe Checkout desde carrito
-   * Flujo: Carrito → Stripe Checkout → Webhook confirma pago → Orden pagada
-   */
+  // Crear sesión de Stripe Checkout desde carrito, Flujo: Carrito → Stripe Checkout → Webhook confirma pago → Orden pagada
   async createCheckoutSession(userID: number, dto: CheckoutDto) {
     // 1. Validar carrito
     const cart = await this.prisma.shoppingCart.findUnique({
@@ -352,9 +346,7 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Obtener historial de órdenes del usuario
-   */
+  //Obtener historial de órdenes del usuario
   async getUserOrders(userID: number) {
     const orders = await this.prisma.orders.findMany({
       where: { userID },
@@ -425,9 +417,6 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Obtener detalle de una orden específica
-   */
   async getOrderById(userID: number, orderID: number) {
     const order = await this.prisma.orders.findUnique({
       where: { orderID },
@@ -523,9 +512,8 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Actualizar estado de orden (ADMIN)
-   */
+  //Actualizar estado de orden (ADMIN)
+
   async updateOrderStatus(orderID: number, dto: UpdateOrderStatusDto) {
     const order = await this.prisma.orders.findUnique({
       where: { orderID },
@@ -597,9 +585,7 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Cancelar orden (Usuario o Admin)
-   */
+  //Cancelar orden (Usuario o Admin)
   async cancelOrder(userID: number, orderID: number, isAdmin: boolean = false) {
     const order = await this.prisma.orders.findUnique({
       where: { orderID },
@@ -669,9 +655,7 @@ export class OrdersService {
     };
   }
 
-  /**
-   * Obtener todas las órdenes (ADMIN)
-   */
+  // Obtener todas las órdenes (ADMIN)
   async getAllOrders(status?: string, limit: number = 50, offset: number = 0) {
     const where: any = {};
 

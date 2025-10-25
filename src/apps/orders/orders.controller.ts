@@ -31,10 +31,7 @@ import { Roles } from 'src/middlewares/auth/roles.decorator';
 export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
-  // ========================
   // ENDPOINTS PARA USUARIOS
-  // ========================
-
   @Post()
   @ApiCookieAuth()
   @ApiOperation({
@@ -310,9 +307,7 @@ export class OrdersController {
     return this.ordersService.cancelOrder(userID, orderID, false);
   }
 
-  // ========================
   // ENDPOINTS PARA ADMINS
-  // ========================
 
   @Get('admin/all')
   @Roles('admin')
