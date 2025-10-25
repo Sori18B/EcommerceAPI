@@ -17,8 +17,9 @@ import { AddAddressDto } from './dto/addAddress.dto';
 import { UpdateAddressDto } from './dto/updateAddress.dto';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
 import { Public } from 'src/middlewares/auth/public.decorator';
+import { Roles } from 'src/middlewares/auth/roles.decorator';
 import { ApiCookieAuth } from 'src/middlewares/auth/cookie-auth.decorator';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Usuarios')
 @Controller('users')
@@ -52,9 +53,28 @@ export class UsersController {
     }
   }
 
+  @Roles('admin')
   @ApiCookieAuth()
   @Post('admin')
-  @ApiOperation({ summary: 'Crear cuenta de administrador (sin dirección)' })
+  @ApiOperation({
+    summary: 'Crear cuenta de administrador (Solo Admin)',
+    description:
+      'Endpoint exclusivo para administradores. Permite crear nuevas cuentas de administrador sin dirección.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Administrador creado exitosamente',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso denegado - Se requiere rol de administrador',
+    schema: {
+      example: {
+        success: false,
+        message: 'Se requiere uno de los siguientes roles: admin',
+      },
+    },
+  })
   async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
     try {
       const result =
