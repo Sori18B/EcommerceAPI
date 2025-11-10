@@ -5,6 +5,13 @@ import { UsersModule } from './apps/users/users.module';
 import { LoginModule } from './apps/login/login.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './middlewares/auth/auth.module';
+import { ProductsModule } from './apps/products/products.module';
+import { FavoritesModule } from './apps/favorites/favorites.module';
+import { CartModule } from './apps/cart/cart.module';
+import { OrdersModule } from './apps/orders/orders.module';
+import { WebhookModule } from './apps/webhooks/webhook.module';
+import { APP_GUARD } from '@nestjs/core';
+import { RolesGuard } from './middlewares/auth/roles.guard';
 
 @Module({
   imports: [
@@ -14,8 +21,19 @@ import { AuthModule } from './middlewares/auth/auth.module';
     UsersModule,
     LoginModule,
     AuthModule,
+    ProductsModule,
+    FavoritesModule,
+    CartModule,
+    OrdersModule,
+    WebhookModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}

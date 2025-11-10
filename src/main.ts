@@ -23,7 +23,7 @@ async function bootstrap() {
     }),
   );
 
-  // Configurar guard global de autenticación JWT
+  // Configurar guards globales de autenticación
   const reflector = app.get(Reflector);
   app.useGlobalGuards(new JwtAuthGuard(reflector));
 
@@ -32,13 +32,16 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('API - Ecommerce (Vistella)')
-    .setDescription('API que incluye las funcionalidades para el ecommerce de Vistella. La autenticación se maneja mediante cookies HTTP-only.')
+    .setDescription(
+      'API que incluye las funcionalidades para el ecommerce de Vistella. La autenticación se maneja mediante cookies HTTP-only.',
+    )
     .setVersion('1.0')
     .addBearerAuth() // Para compatibilidad con herramientas que usen Bearer Token
     .addSecurity('cookieAuth', {
       type: 'http',
       scheme: 'cookie',
-      description: 'Autenticación mediante cookie HTTP-only. El token JWT se envía automáticamente en las cookies cuando el usuario está logueado.'
+      description:
+        'Autenticación mediante cookie HTTP-only. El token JWT se envía automáticamente en las cookies cuando el usuario está logueado.',
     })
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);

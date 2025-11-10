@@ -25,6 +25,9 @@ model User {
   // relations
   role      Role      @relation(fields: [roleID], references: [roleID])
   addresses Address[]
+  favorites Favorite[]
+  carts     ShoppingCart[]
+  orders    Orders[]
 }
 
 enum AddressType {
@@ -60,7 +63,9 @@ model Address {
   updatedAt     DateTime @updatedAt
 
   // relations
-  user User @relation(fields: [userID], references: [userID])
+  user              User     @relation(fields: [userID], references: [userID])
+  ordersAsShipping  Orders[] @relation("ShippingAddress")
+  ordersAsBilling   Orders[] @relation("BillingAddress")
 
   // Índice para performance
   @@index([userID])
@@ -80,6 +85,11 @@ model Product {
   description String    @db.Text
   basePrice   Decimal   @db.Decimal(10, 2)
   isActive    Boolean   @default(true)
+  //Stripe fields
+  stripeProductId   String?  @unique @db.VarChar(255)
+  taxCode          String?  @db.VarChar(50)
+  shippable        Boolean? @default(true)   
+
 
   // FK
   categoryID  Int
@@ -96,7 +106,7 @@ model Product {
   variants    ProductVariant[]
   favorites   Favorite[]
 
-  // indices útiles para catálogo
+  // indices para catálogo
   @@index([categoryID])
   @@index([genderID])
   @@index([isActive])
@@ -104,7 +114,7 @@ model Product {
 
 model Category {
   categoryID   Int      @id @default(autoincrement())
-  categoryName String   @db.VarChar(255)
+  categoryName String   @unique @db.VarChar(255)
   description  String?  @db.Text
   isActive     Boolean  @default(true)
 
@@ -114,7 +124,7 @@ model Category {
 
 model Gender {
   genderID   Int     @id @default(autoincrement())
-  genderName String  @db.VarChar(50)
+  genderName String  @unique @db.VarChar(50)
 
   // back-relation
   products   Product[]
@@ -135,7 +145,6 @@ model ProductImage {
   // relation
   product      Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
 
-  // Asegura un orden único por producto (evita duplicar el mismo orden)
   @@unique([productID, displayOrder])
   @@index([productID])
 }
@@ -151,22 +160,41 @@ model ProductVariant {
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  //Stripe fields
+  stripePriceId    String?  @unique @db.VarChar(255)
+  currency         String   @default("mxn") @db.VarChar(3)
+  mode             PaymentMode? @default(payment)  // 'payment' | 'subscription' | 'setup'
+  taxBehavior      TaxBehavior? @default(unspecified)
+  nickname         String?  @db.VarChar(255)
 
   // relations
   product          Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
   size             Size     @relation(fields: [sizeID], references: [sizeID], onDelete: Restrict, onUpdate: Cascade)
   color            Color    @relation(fields: [colorID], references: [colorID], onDelete: Restrict, onUpdate: Cascade)
+  cartItems        ShoppingCartItem[]
+  orderDetails     OrderDetails[]
 
-  // La combinación size+color por producto debe ser única
   @@unique([productID, sizeID, colorID])
   @@index([productID])
   @@index([sizeID])
   @@index([colorID])
 }
 
+enum PaymentMode {
+  payment
+  subscription
+  setup
+}
+
+enum TaxBehavior {
+  inclusive
+  exclusive
+  unspecified
+}
+
 model Size {
   sizeID    Int     @id @default(autoincrement())
-  sizeLabel String  @db.VarChar(100)
+  sizeLabel String  @unique @db.VarChar(100)
   sizeOrder Int     @default(0)
 
   // back-relation
@@ -175,8 +203,8 @@ model Size {
 
 model Color {
   colorID   Int     @id @default(autoincrement())
-  colorName String  @db.VarChar(100)
-  hexCode   String? @db.VarChar(7) // p.ej. #4242aaff
+  colorName String  @unique @db.VarChar(100)
+  hexCode   String? @db.VarChar(7) // #4242aaff
 
   // back-relation
   variants  ProductVariant[]
@@ -192,9 +220,165 @@ model Favorite {
   user       User     @relation(fields: [userID], references: [userID], onDelete: Cascade, onUpdate: Cascade)
   product    Product  @relation(fields: [productID], references: [productID], onDelete: Cascade, onUpdate: Cascade)
 
-  // Evita duplicar "favorito" del mismo producto por el mismo usuario
   @@unique([userID, productID])
 
   @@index([userID])
   @@index([productID])
+}
+
+model ShoppingCart {
+  cartID     Int      @id @default(autoincrement())
+  userID     Int      @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // relations
+  user       User     @relation(fields: [userID], references: [userID], onDelete: Cascade, onUpdate: Cascade)
+  items      ShoppingCartItem[]
+
+  @@index([userID])
+}
+
+model ShoppingCartItem {
+  cartItemID        Int      @id @default(autoincrement())
+  cartID            Int
+  productVariantID  Int
+  quantity          Int      @default(1)
+  addedAt           DateTime @default(now())
+
+  // relations
+  cart              ShoppingCart    @relation(fields: [cartID], references: [cartID], onDelete: Cascade, onUpdate: Cascade)
+  productVariant    ProductVariant  @relation(fields: [productVariantID], references: [productVariantID], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([cartID, productVariantID])
+  @@index([cartID])
+  @@index([productVariantID])
+}
+
+model Orders{
+  orderID        Int      @id @default(autoincrement())
+  userID         Int
+  shippingAddressID Int
+  billingAddressID  Int
+  orderDate      DateTime @default(now())
+  estimatedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  orderStatus   String   @db.VarChar(50)
+  deliveryStatusID Int?
+  subtotalAmount  Decimal  @db.Decimal(10, 2)
+  taxAmount      Decimal  @db.Decimal(10, 2)
+  shippingAmount Decimal  @db.Decimal(10, 2)
+  totalAmount    Decimal  @db.Decimal(10, 2)
+  currency      String   @default("mxn") @db.VarChar(3)
+  stripePaymentIntentID String? @db.VarChar(255)
+  stripeSessionID String? @db.VarChar(255)
+  paymentMethod String   @db.VarChar(50)
+  paymentStatusID Int?
+  paidAt       DateTime?
+  customerNote String?  @db.Text
+  adminNote    String?  @db.Text
+  trackingNumber String? @db.VarChar(100)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // relations
+  user              User            @relation(fields: [userID], references: [userID], onDelete: Restrict, onUpdate: Cascade)
+  shippingAddress   Address         @relation("ShippingAddress", fields: [shippingAddressID], references: [addressID], onDelete: Restrict, onUpdate: Cascade)
+  billingAddress    Address         @relation("BillingAddress", fields: [billingAddressID], references: [addressID], onDelete: Restrict, onUpdate: Cascade)
+  deliveryStatus    DeliveryStatus? @relation(fields: [deliveryStatusID], references: [deliveryStatusID], onDelete: SetNull, onUpdate: Cascade)
+  paymentStatus     PaymentStatus?  @relation(fields: [paymentStatusID], references: [paymentStatusID], onDelete: SetNull, onUpdate: Cascade)
+  orderDetails      OrderDetails[]
+
+  @@index([userID])
+  @@index([shippingAddressID])
+  @@index([billingAddressID])
+  @@index([deliveryStatusID])
+  @@index([paymentStatusID])
+  @@index([orderDate])
+}
+
+model OrderDetails{
+  orderDetailID   Int      @id @default(autoincrement())
+  orderID         Int
+  productVariantID Int
+  productName    String   @db.VarChar(255)
+  variantSKU    String   @db.VarChar(100)
+  priceAtPurchase  Decimal  @db.Decimal(10, 2)
+  quantity        Int      @default(1)
+  subtotal       Decimal  @db.Decimal(10, 2)
+  discountAmount Decimal  @db.Decimal(10, 2) @default(0)
+  discountType   String?  @db.VarChar(50)
+  discountCode   String?  @db.VarChar(50)
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  totalPrice     Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // relations
+  order            Orders          @relation(fields: [orderID], references: [orderID], onDelete: Cascade, onUpdate: Cascade)
+  productVariant   ProductVariant  @relation(fields: [productVariantID], references: [productVariantID], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([orderID])
+  @@index([productVariantID])
+}
+
+model DeliveryStatus {
+  deliveryStatusID Int     @id @default(autoincrement())
+  statusName      String  @unique @db.VarChar(50)
+  description     String? @db.Text
+  
+  // relations
+  orders          Orders[]
+}
+
+model PaymentStatus {
+  paymentStatusID Int     @id @default(autoincrement())
+  statusName      String  @unique @db.VarChar(50)
+  description     String? @db.Text
+  
+  // relations
+  orders          Orders[]
+}
+
+model StripeWebhookLog {
+  webhookID        Int      @id @default(autoincrement())
+  eventID          String   @unique @db.VarChar(255)
+  eventType        String   @db.VarChar(255)
+  status           String   @db.VarChar(50)
+  processed        Boolean  @default(false)
+  processedAt      DateTime?
+  retryCount       Int      @default(0)
+  errorMessage     String?  @db.Text
+  payload          Json
+  receivedAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([eventID])
+  @@index([eventType])
+  @@index([status])
+  @@index([processed])
+  @@index([receivedAt])
+}
+
+model DiscountCoupons{
+  couponID            Int      @id @default(autoincrement())
+  code                String   @unique @db.VarChar(50)
+  description         String?  @db.Text
+  discountType        String   @db.VarChar(50)
+  discountValue       Decimal  @db.Decimal(10, 2)
+  minOrderAmount      Decimal  @db.Decimal(10, 2) @default(0)
+  maxUsageLimit       Int?
+  maxUsagePerUser     Int?     @default(1)
+  currentUsageCount   Int      @default(0)
+  validFrom           DateTime
+  validUntil          DateTime
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // relations
+  @@index([code])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
 }
