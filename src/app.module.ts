@@ -9,6 +9,7 @@ import { ProductsModule } from './apps/products/products.module';
 import { FavoritesModule } from './apps/favorites/favorites.module';
 import { CartModule } from './apps/cart/cart.module';
 import { OrdersModule } from './apps/orders/orders.module';
+import { WebhookModule } from './apps/webhooks/webhook.module';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './middlewares/auth/roles.guard';
 
@@ -24,6 +25,7 @@ import { RolesGuard } from './middlewares/auth/roles.guard';
     FavoritesModule,
     CartModule,
     OrdersModule,
+    WebhookModule,
   ],
   controllers: [AppController],
   providers: [

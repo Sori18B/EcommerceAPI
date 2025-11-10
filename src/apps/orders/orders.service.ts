@@ -9,6 +9,7 @@ import { StripeService } from 'src/utils/stripe/stripe.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckoutDto } from './dto/checkout.dto';
+import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -342,6 +343,157 @@ export class OrdersService {
         sessionId: session.id,
         sessionUrl: session.url,
         expiresAt: new Date(session.expires_at * 1000).toISOString(),
+      },
+    };
+  }
+
+  // Crear Payment Intent para React Native SDK (@stripe/stripe-react-native)
+  async createPaymentIntentForMobile(
+    userID: number,
+    dto: CreatePaymentIntentDto,
+  ) {
+    // 1. Validar carrito
+    const cart = await this.prisma.shoppingCart.findUnique({
+      where: { userID },
+      include: {
+        items: {
+          include: {
+            productVariant: {
+              include: {
+                product: true,
+                size: true,
+                color: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cart || cart.items.length === 0) {
+      throw new BadRequestException('Tu carrito está vacío');
+    }
+
+    // 2. Validar direcciones
+    const [shippingAddress, billingAddress] = await Promise.all([
+      this.prisma.address.findUnique({
+        where: { addressID: dto.shippingAddressID },
+      }),
+      this.prisma.address.findUnique({
+        where: { addressID: dto.billingAddressID },
+      }),
+    ]);
+
+    if (!shippingAddress || shippingAddress.userID !== userID) {
+      throw new BadRequestException('Dirección de envío inválida');
+    }
+
+    if (!billingAddress || billingAddress.userID !== userID) {
+      throw new BadRequestException('Dirección de facturación inválida');
+    }
+
+    // 3. Validar stock
+    for (const item of cart.items) {
+      if (item.productVariant.stock < item.quantity) {
+        throw new BadRequestException(
+          `Stock insuficiente para ${item.productVariant.product.name}`,
+        );
+      }
+    }
+
+    // 4. Calcular totales
+    const subtotal = cart.items.reduce(
+      (sum, item) => sum + Number(item.productVariant.price) * item.quantity,
+      0,
+    );
+
+    const taxAmount = subtotal * 0.16; // IVA 16%
+    const shippingAmount = subtotal >= 500 ? 0 : 99; // Envío gratis > $500
+    const totalAmount = subtotal + taxAmount + shippingAmount;
+
+    // 5. Obtener o crear Stripe Customer
+    const user = await this.prisma.user.findUnique({
+      where: { userID },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    let stripeCustomerID = user.stripeCustomerID;
+
+    if (!stripeCustomerID) {
+      const customer = await this.stripe.createSimpleCustomer({
+        email: user.email,
+        name: `${user.name} ${user.lastName}`,
+        phone: user.phoneNumber,
+        metadata: {
+          userID: userID.toString(),
+        },
+      });
+
+      stripeCustomerID = customer.id;
+
+      await this.prisma.user.update({
+        where: { userID },
+        data: { stripeCustomerID: customer.id },
+      });
+    }
+
+    // 6. Crear Payment Intent
+    const paymentIntent = await this.stripe.createPaymentIntent({
+      amount: Math.round(totalAmount * 100), // Convertir a centavos
+      currency: 'mxn',
+      customer: stripeCustomerID,
+      metadata: {
+        userID: userID.toString(),
+        shippingAddressID: dto.shippingAddressID.toString(),
+        billingAddressID: dto.billingAddressID.toString(),
+        customerNote: dto.customerNote || '',
+        cartID: cart.cartID.toString(),
+        subtotal: subtotal.toString(),
+        tax: taxAmount.toString(),
+        shipping: shippingAmount.toString(),
+      },
+      description: `Orden de ${cart.items.length} items - Usuario ${user.email}`,
+      receipt_email: user.email,
+      shipping: {
+        name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+        phone: user.phoneNumber,
+        address: {
+          line1: shippingAddress.street,
+          line2: shippingAddress.neighborhood || undefined,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postal_code: shippingAddress.postalCode,
+          country: shippingAddress.countryCode,
+        },
+      },
+      // Configuración para React Native
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Payment Intent creado exitosamente',
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        cartSummary: {
+          itemsCount: cart.items.length,
+          totalQuantity: cart.items.reduce(
+            (sum, item) => sum + item.quantity,
+            0,
+          ),
+          subtotal: Number(subtotal.toFixed(2)),
+          tax: Number(taxAmount.toFixed(2)),
+          shipping: Number(shippingAmount.toFixed(2)),
+          total: Number(totalAmount.toFixed(2)),
+        },
       },
     };
   }

@@ -24,6 +24,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckoutDto } from './dto/checkout.dto';
+import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { Roles } from 'src/middlewares/auth/roles.decorator';
 
 @ApiTags('Orders')
@@ -108,6 +109,51 @@ export class OrdersController {
   async createCheckoutSession(@Req() req: Request, @Body() dto: CheckoutDto) {
     const userID = (req.user as any).userID;
     return this.ordersService.createCheckoutSession(userID, dto);
+  }
+
+  @Post('create-payment-intent')
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Crear Payment Intent para React Native SDK',
+    description:
+      'Crea un Payment Intent de Stripe para usar con @stripe/stripe-react-native. ' +
+      'Retorna el clientSecret necesario para confirmar el pago desde la app móvil. ' +
+      'El webhook payment_intent.succeeded creará la orden automáticamente.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Payment Intent creado exitosamente',
+    schema: {
+      example: {
+        success: true,
+        message: 'Payment Intent creado exitosamente',
+        data: {
+          clientSecret: 'pi_xxx_secret_yyy',
+          paymentIntentId: 'pi_1234567890',
+          amount: 183320,
+          currency: 'mxn',
+          cartSummary: {
+            itemsCount: 3,
+            subtotal: 1495.0,
+            tax: 239.2,
+            shipping: 99.0,
+            total: 1833.2,
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Carrito vacío, stock insuficiente o dirección inválida',
+  })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  async createPaymentIntent(
+    @Req() req: Request,
+    @Body() dto: CreatePaymentIntentDto,
+  ) {
+    const userID = (req.user as any).userID;
+    return this.ordersService.createPaymentIntentForMobile(userID, dto);
   }
 
   @Get()
