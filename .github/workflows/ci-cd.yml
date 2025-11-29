@@ -1,0 +1,49 @@
+name: CI/CD Pipeline (NestJS & Check)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    # 1. Preparar entorno (Checkout)
+    - name: Checkout del código
+      uses: actions/checkout@v3
+
+    # 2. Generar Entorno de Liberación (Node)
+    - name: Configurar Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    # 3. Instalación de dependencias
+    - name: Instalar dependencias
+      run: npm ci
+
+    # 4. Pruebas Estáticas (Linting)
+    - name: Verificar calidad de código (Lint)
+      run: npm run lint
+
+    # 5. Pruebas Unitarias
+    - name: Ejecutar Tests Unitarios
+      run: npm run test
+
+    # 6. Simulación de construcción (Verifica que el Dockerfile funciona)
+    - name: Verificar construcción de imagen Docker
+      run: docker build . --file Dockerfile --tag mi-api-backend:latest
+
+  deploy-trigger:
+    needs: integration-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Notificar Despliegue a Render
+        # Aquí es donde el Pipeline se conecta con el entorno de despliegue real
+        run: |
+          echo "Las pruebas pasaron. Render detectará el push automáticamente."
+          echo "El entorno de producción se actualizará en breve."
